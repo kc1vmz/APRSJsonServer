@@ -3,10 +3,10 @@
   <parent>
     <groupId>com.kc1vmz</groupId>
     <artifactId>aprs-json</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
   </parent>
   <artifactId>aprs-json-client</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
   <dependencies>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -21,6 +21,5 @@
   <build><plugins><plugin>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-maven-plugin</artifactId>
-    <configuration><classifier>exec</classifier></configuration>
   </plugin></plugins></build>
 </project>

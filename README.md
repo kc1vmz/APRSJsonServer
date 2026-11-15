@@ -12,8 +12,8 @@ From the project root with Java 21 and Maven:
 
 ```shell
 mvn verify
-java -jar server/target/aprs-json-server-1.0.0-exec.jar
-java -jar client/target/aprs-json-client-1.0.0-exec.jar
+java -jar server/target/aprs-json-server-1.0.1-exec.jar
+java -jar client/target/aprs-json-client-1.0.1-exec.jar
 ```
 
 Open the server management page at `http://127.0.0.1:8180/` and add a connection.
