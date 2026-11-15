@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APRS JSON Client</title><link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script>
+</head>
+<body>
+<h1>APRS JSON Client</h1>
+<nav id="pages" aria-label="Main navigation">
+<a href="#packets-page" aria-current="page">Packets</a>
+<a href="#configuration-page">Configuration</a>
+<a href="#help-page">Help</a>
+</nav>
+<main>
+<div id="configuration-page" hidden>
+<form id="connection">
+<div class="row">
+<label>Server address <input id="server-address" value="127.0.0.1" required></label>
+<label>Packet API port <input id="server-port" type="number" min="1" max="65535" required></label>
+</div>
+<div class="actions"><button id="discover" type="button">Discover feeds</button></div>
+<label id="feed-label" hidden>Feed <select id="feed"></select></label>
+<label>Custom NDJSON stream URL (optional) <input id="stream" type="url"></label>
+<p id="state"></p>
+<div class="actions">
+<button id="connect" type="submit" disabled>Connect</button>
+<button id="disconnect" type="button" disabled>Disconnect</button>
+<button id="producer-info" type="button" hidden>Producer info</button>
+</div>
+<output id="notice" aria-live="polite"></output>
+</form>
+</div>
+<section id="packets-page">
+<h2>Recent packets and events</h2>
+<div class="scroll"><table>
+<thead><tr><th>Sequence</th><th>Source</th><th>Packet or event</th><th>Details</th></tr></thead>
+<tbody id="packets"></tbody>
+</table></div>
+</section>
+<section id="help-page" hidden>
+<h2 id="application-name">Application information</h2>
+<p id="application-version"></p>
+<h3>Description</h3>
+<p>Connect to an APRS JSON server to discover feeds and view live APRS packets and stream events. Inspect packet bytes and JSON to verify what the server sends.</p>
+<h3>Copyright and license</h3>
+<p id="application-copyright"></p>
+<p><a id="application-license"></a></p>
+<p><a id="application-website" target="_blank" rel="noopener"></a></p>
+<p id="application-info-error" role="status" hidden>Application information is unavailable.</p>
+</section>
+</main>
+<dialog id="producer-details" aria-labelledby="producer-title">
+<h2 id="producer-title">Producer info</h2>
+<pre id="hello"></pre>
+<form method="dialog"><button>Close</button></form>
+</dialog>
+<dialog id="details">
+<h2>Event details</h2><pre id="raw"></pre><pre id="json"></pre>
+<form method="dialog"><button>Close</button></form>
+</dialog>
+</body>
+</html>

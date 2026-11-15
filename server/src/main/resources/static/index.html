@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APRS JSON Server</title><link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script>
+</head>
+<body>
+<h1>APRS JSON Server</h1>
+<form id="producer-settings">
+<h2>Producer identity</h2>
+<label>Producer station <input id="producer-station" maxlength="80" required disabled></label>
+<button id="save-producer" disabled>Save station</button>
+<output id="producer-status" aria-live="polite"></output>
+</form>
+<section>
+<header><h2>Communication settings</h2><button id="add">Add connection</button></header>
+<output id="status" aria-live="polite"></output>
+<div class="scroll"><table>
+<thead><tr><th>Connection</th><th>Configured</th><th>Health</th><th>Last packet</th><th>Actions</th></tr></thead>
+<tbody id="sources"></tbody>
+</table></div>
+</section>
+<section>
+<h2>Statistics</h2><p id="totals"></p>
+<div class="scroll"><table>
+<thead><tr><th>Connection</th><th>Received</th><th>Packets in last minute</th><th>Rejected by packet limits</th><th>Connection failures</th><th>Direct feed subscribers</th></tr></thead>
+<tbody id="statistics"></tbody>
+</table></div>
+</section>
+<section aria-labelledby="application-information">
+<h2 id="application-information">Application information</h2>
+<p id="application-name"></p>
+<p id="application-version"></p>
+<p id="application-copyright"></p>
+<p><a id="application-license"></a></p>
+<p><a id="application-website" target="_blank" rel="noopener"></a></p>
+<p id="application-info-error" role="status" hidden>Application information is unavailable.</p>
+</section>
+<dialog id="editor">
+<h2 id="editor-title">Add connection</h2>
+<form id="settings">
+<label>Display name <input name="label" maxlength="80" required></label>
+<label>Transport <select name="type">
+<option value="APRS_IS">APRS-IS</option><option value="KISS_TCP">KISS TCP</option>
+<option value="KISS_SERIAL">KISS Serial</option><option value="TNC2_TCP">TNC2 TCP</option>
+<option value="TNC2_SERIAL">TNC2 Serial</option><option value="KENWOOD_SERIAL">Kenwood Serial</option>
+</select></label>
+<div class="row" id="network">
+<label>Host <input name="host"></label>
+<label>Port <input name="port" type="number" min="1" max="65535"></label>
+</div>
+<div class="row" id="serial">
+<label>Serial device <input name="serialDevice" list="ports"><datalist id="ports"></datalist></label>
+<label>Baud rate <input name="baudRate" type="number" min="1"></label>
+</div>
+<label id="callsign"><span id="callsign-label">Callsign</span><input name="username" autocomplete="off"></label>
+<label id="source-producer" hidden>Producer station <input name="producerStation" maxlength="80" autocomplete="off" disabled></label>
+<div id="internet">
+<label>Passcode <input type="password" name="passcode" autocomplete="new-password" placeholder="Keep existing or use -1"></label>
+<label>APRS-IS filter <input name="filter"></label>
+</div>
+<div id="initialization">
+<label>Initialization command 1 <input name="initCommand1"></label>
+<label>Initialization command 2 <input name="initCommand2"></label>
+</div>
+<label><span><input type="checkbox" name="active" checked> Active</span></label>
+<output id="editor-status" aria-live="polite"></output>
+<div class="actions"><button type="submit">Save</button><button type="button" id="cancel">Cancel</button></div>
+</form>
+</dialog>
+</body>
+</html>
