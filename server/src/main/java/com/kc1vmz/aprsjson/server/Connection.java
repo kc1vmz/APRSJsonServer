@@ -23,7 +23,8 @@ import java.util.UUID;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record Connection(UUID id, String label, Type type, boolean active, String host, Integer port,
                   String username, String passcode, String filter, String serialDevice,
-                  Integer baudRate, String initCommand1, String initCommand2, String producerStation) {
+                  Integer baudRate, String initCommand1, String initCommand2, String producerStation,
+                  Integer historyEvents) {
     enum Type {
         APRS_IS, KISS_TCP, KISS_SERIAL, TNC2_TCP, TNC2_SERIAL, KENWOOD_SERIAL;
 
@@ -64,21 +65,28 @@ record Connection(UUID id, String label, Type type, boolean active, String host,
         else if (station == null) station = legacyStation;
         if (station == null || station.isBlank() || station.strip().length() > 80)
             throw new IllegalArgumentException("Producer station must be between 1 and 80 characters");
+        int depth = historyEvents != null ? historyEvents
+                : previous != null ? previous.historyEvents : Feed.DEFAULT_HISTORY_EVENTS;
         return new Connection(id, label.strip(), type, active, type.serial() ? null : host.strip(),
                 type.serial() ? null : port, type == Type.APRS_IS || type == Type.KENWOOD_SERIAL ? username : null,
                 type == Type.APRS_IS ? password : null, type == Type.APRS_IS ? filter : null,
                 type.serial() ? serialDevice.strip() : null, type.serial() ? baudRate : null,
-                initCommand1, initCommand2, station.strip());
+                initCommand1, initCommand2, station.strip(), Feed.validateHistoryDepth(depth));
     }
 
     Connection withActive(boolean enabled) {
         return new Connection(id, label, type, enabled, host, port, username, passcode, filter,
-                serialDevice, baudRate, initCommand1, initCommand2, producerStation);
+                serialDevice, baudRate, initCommand1, initCommand2, producerStation, historyEvents);
     }
 
     Connection redacted() {
         return new Connection(id, label, type, active, host, port, username, null, filter,
-                serialDevice, baudRate, initCommand1, initCommand2, producerStation);
+                serialDevice, baudRate, initCommand1, initCommand2, producerStation, historyEvents);
+    }
+
+    Connection withHistoryEvents(int depth) {
+        return new Connection(id, label, type, active, host, port, username, passcode, filter,
+                serialDevice, baudRate, initCommand1, initCommand2, producerStation, depth);
     }
 
     @Override

@@ -41,6 +41,8 @@ async function refresh() {
     if (request !== revision) return;
     if ($('producer-station').disabled) {
       $('producer-station').value = view.producerStation;
+      $('combined-history').value = view.historyEvents;
+      $('combined-history').disabled = false;
       $('producer-station').disabled = false;
       $('save-producer').disabled = false;
     }
@@ -141,7 +143,7 @@ form.onsubmit = async event => {
     values.producerStation = values.username;
   }
   values.active = fields.active.checked;
-  for (const name of ['port', 'baudRate']) if (values[name]) values[name] = Number(values[name]);
+  for (const name of ['port', 'baudRate', 'historyEvents']) if (values[name]) values[name] = Number(values[name]);
   try {
     await api(editing ? '/sources/' + editing : '/sources', editing ? 'PUT' : 'POST', values);
     $('editor').close();
@@ -154,13 +156,15 @@ form.onsubmit = async event => {
 $('producer-settings').onsubmit = async event => {
   event.preventDefault();
   const input = $('producer-station');
+  const history = $('combined-history');
   const button = $('save-producer');
   const feedback = $('producer-status');
   button.disabled = true;
   try {
-    const saved = await api('/producer', 'PUT', {station: input.value});
+    const saved = await api('/producer', 'PUT', {station: input.value, historyEvents: history.valueAsNumber});
     input.value = saved.station;
-    feedback.textContent = 'Saved. New stream connections will receive this station in hello.';
+    history.value = saved.historyEvents;
+    feedback.textContent = 'Saved. New stream connections will receive these settings in hello.';
   } catch (error) {
     feedback.textContent = error.message;
   } finally {

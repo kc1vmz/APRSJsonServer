@@ -37,27 +37,32 @@ import reactor.core.publisher.Sinks;
 final class Feed {
     static final int MAX_RECORD_BYTES = 65536;
     static final int SNAPSHOT_LIMIT = 32;
+    static final int DEFAULT_HISTORY_EVENTS = 32;
     private static final long HEARTBEAT_INTERVAL = TimeUnit.SECONDS.toNanos(15);
     private final String bootId = UUID.randomUUID().toString();
     private final Supplier<String> station;
     private final long bootTime;
     private final ObjectMapper mapper;
     private final List<Subscriber> clients = new ArrayList<>();
-    private final ArrayDeque<Map<String, Object>> recent = new ArrayDeque<>();
+    private final String feedId;
+    private int historyDepth;
+    private final ArrayDeque<Reception> recent = new ArrayDeque<>();
     private long sequence;
     private long disconnectedSlowClients;
     private boolean closed;
 
-    Feed(ObjectMapper mapper, Supplier<String> station, long bootTime) {
+    Feed(ObjectMapper mapper, Supplier<String> station, long bootTime, String feedId, int historyDepth) {
         this.mapper = mapper;
         this.station = station;
         this.bootTime = bootTime;
+        this.feedId = feedId;
+        this.historyDepth = historyDepth;
     }
 
     synchronized void publish(UUID source, String receiver, Instant received, Map<String, Object> packet) {
         if (closed) return;
         Map<String, Object> event = control("rx");
-        event.put("event_id", bootId + ":" + (sequence + 1));
+        event.put("event_id", feedId + ":" + bootId + ":" + (sequence + 1));
         event.put("sequence", sequence + 1);
         event.put("created_at", received.toString());
         event.put("receiver", Map.of("station", receiver, "interface", source.toString()));
@@ -65,29 +70,74 @@ final class Feed {
         event.put("reception", Map.of());
         byte[] record = encode(event);
         sequence++;
-        recent.addFirst(event);
-        if (recent.size() > SNAPSHOT_LIMIT) recent.removeLast();
+        recent.addFirst(new Reception(event, record));
+        if (recent.size() > historyDepth) recent.removeLast();
         for (Subscriber subscriber : List.copyOf(clients)) send(subscriber, record);
     }
 
     Flux<byte[]> stream() {
+        return stream(null);
+    }
+
+    Flux<byte[]> stream(String after) {
         return Flux.defer(() -> {
             Subscriber subscriber;
+            var initial = new ArrayList<byte[]>();
             synchronized (this) {
                 if (closed) return Flux.empty();
                 subscriber = new Subscriber();
                 var hello = control("hello");
                 hello.put("latest_sequence", sequence);
                 hello.put("producer", Map.of("station", station.get(), "software", "APRSJsonServer"));
-                hello.put("capabilities", Map.of("events", List.of("rx", "heartbeat", "error"),
-                        "features", List.of(), "transports", List.of("ndjson-http"),
-                        "history_events", 0, "max_record_bytes", MAX_RECORD_BYTES));
-                send(subscriber, encode(hello));
+                hello.put("capabilities", Map.of("events", List.of("rx", "heartbeat", "gap", "error"),
+                        "features", List.of("history_resume"), "transports", List.of("ndjson-http"),
+                        "history_events", historyDepth, "max_record_bytes", MAX_RECORD_BYTES));
+                initial.add(encode(hello));
+                if (after != null) prepareReplay(after, initial);
+                subscriber.lastSent = System.nanoTime();
                 clients.add(subscriber);
             }
-            return Flux.merge(subscriber.records.asFlux(), subscriber.overflow.asMono())
+            var records = Flux.concat(Flux.fromIterable(initial), subscriber.records.asFlux());
+            return Flux.merge(records, subscriber.overflow.asMono())
                     .doFinally(signal -> unsubscribe(subscriber));
         });
+    }
+
+    private void prepareReplay(String after, List<byte[]> initial) {
+        String reason = "unknown_event";
+        String[] parts = after.split(":", 3);
+        if (parts.length == 3 && feedId.equals(parts[0])) {
+            try {
+                UUID cursorBoot = UUID.fromString(parts[1]);
+                long cursor = Long.parseLong(parts[2]);
+                if (cursor > 0 && cursorBoot.toString().equals(parts[1]) && Long.toString(cursor).equals(parts[2])) {
+                    if (!bootId.equals(parts[1])) {
+                        reason = "different_boot";
+                    } else if (cursor <= sequence) {
+                        if (cursor <= sequence - recent.size()) {
+                            reason = "history_expired";
+                        } else {
+                            var oldestFirst = recent.descendingIterator();
+                            while (oldestFirst.hasNext()) {
+                                Reception entry = oldestFirst.next();
+                                if ((long) entry.event().get("sequence") > cursor) initial.add(entry.record());
+                            }
+                            return;
+                        }
+                    }
+                }
+            } catch (IllegalArgumentException ignored) {
+                // External callers may provide any opaque cursor.
+            }
+        }
+        var gap = control("gap");
+        gap.put("requested_after", after);
+        gap.put("reason", reason);
+        if (!recent.isEmpty()) {
+            gap.put("oldest_available", recent.getLast().event().get("event_id"));
+            gap.put("latest_available", recent.getFirst().event().get("event_id"));
+        }
+        initial.add(encode(gap));
     }
 
     synchronized void heartbeat() {
@@ -123,7 +173,22 @@ final class Feed {
     }
 
     synchronized List<Map<String, Object>> snapshot(int limit) {
-        return recent.stream().limit(limit).toList();
+        return recent.stream().limit(limit).map(Reception::event).toList();
+    }
+
+    synchronized int historyDepth() {
+        return historyDepth;
+    }
+
+    synchronized void resizeHistory(int depth) {
+        historyDepth = depth;
+        while (recent.size() > depth) recent.removeLast();
+    }
+
+    static int validateHistoryDepth(int depth) {
+        if (depth < 1 || depth > 4096)
+            throw new IllegalArgumentException("History size must be between 1 and 4096 receptions");
+        return depth;
     }
 
     synchronized int subscribers() {
@@ -171,4 +236,6 @@ final class Feed {
         final Sinks.One<byte[]> overflow = Sinks.one();
         long lastSent;
     }
+
+    private record Reception(Map<String, Object> event, byte[] record) {}
 }

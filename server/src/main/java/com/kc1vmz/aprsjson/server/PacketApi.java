@@ -67,18 +67,16 @@ final class PacketApi {
 
     private Mono<Void> stream(HttpServerRequest request, HttpServerResponse response, Feed feed) {
         if (feed == null) return response.sendNotFound();
+        String after;
         try {
-            String after = parameter(request, "after");
-            if (after != null) {
-                if (after.isEmpty()) return badRequest(response, "invalid_after", "after must not be empty");
-                return badRequest(response, "history_resume_unsupported", "This feed does not support history resume");
-            }
+            after = parameter(request, "after");
+            if ("".equals(after)) return badRequest(response, "invalid_after", "after must not be empty");
         } catch (IllegalArgumentException e) {
             return badRequest(response, "invalid_after", "Invalid query encoding");
         }
         response.header("Content-Type", "application/x-ndjson; charset=utf-8")
                 .header("Cache-Control", "no-store");
-        return response.sendGroups(feed.stream().map(record ->
+        return response.sendGroups(feed.stream(after).map(record ->
                 Mono.fromSupplier(() -> response.alloc().buffer(record.length).writeBytes(record)))).then();
     }
 

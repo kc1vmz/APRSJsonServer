@@ -111,10 +111,22 @@ UUID. Pause and reconnect leave existing streams open. Deletion ends that
 source's stream and unknown source paths return HTTP 404. Slow subscribers
 are disconnected when their bounded delivery queue fills.
 
-Streams start with live traffic. The snapshot holds up to 32 receptions per
-feed in memory and accepts limits from 1 to 32. No packet data is written to
-disk. The server advertises no history resume capability and returns
-`history_resume_unsupported` for nonempty `after` parameters.
+Streams without a cursor start with live traffic. The server advertises
+`history_resume` and retains the most recent 32 receptions per feed in RAM
+by default. Set **Feed history (receptions)** in Add/Edit Connection or
+**Combined feed history (receptions)** in the server's producer settings.
+Each value is saved separately and accepts 1 to 4096. Lowering the limit
+evicts the oldest entries immediately. New stream connections receive the
+updated limit in `hello`. Snapshots share the buffer and accept limits from
+1 to 32. Packet history expires on restart.
+
+Reconnect with `?after=<event_id>` to receive retained receptions after that
+event, followed by live traffic. A cursor outside the retained history
+receives one `gap` before live traffic. Reasons are `history_expired`,
+`different_boot`, and `unknown_event`. Use a cursor from the same feed.
+Cursors from releases before history resume are reported as `unknown_event`.
+The Java client remembers cursors for up to 32 recently used stream URLs in
+memory and uses them on reconnect when the feed advertised resume support.
 
 ## Protocol interpretation
 

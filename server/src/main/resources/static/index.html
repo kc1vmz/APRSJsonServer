@@ -9,7 +9,8 @@
 <form id="producer-settings">
 <h2>Producer identity</h2>
 <label>Producer station <input id="producer-station" maxlength="80" required disabled></label>
-<button id="save-producer" disabled>Save station</button>
+<label>Combined feed history (receptions) <input id="combined-history" type="number" min="1" max="4096" required disabled></label>
+<button id="save-producer" disabled>Save producer settings</button>
 <output id="producer-status" aria-live="polite"></output>
 </form>
 <section>
@@ -55,6 +56,7 @@
 </div>
 <label id="callsign"><span id="callsign-label">Callsign</span><input name="username" autocomplete="off"></label>
 <label id="source-producer" hidden>Producer station <input name="producerStation" maxlength="80" autocomplete="off" disabled></label>
+<label>Feed history (receptions) <input name="historyEvents" type="number" min="1" max="4096" value="32" required></label>
 <div id="internet">
 <label>Passcode <input type="password" name="passcode" autocomplete="new-password" placeholder="Keep existing or use -1"></label>
 <label>APRS-IS filter <input name="filter"></label>

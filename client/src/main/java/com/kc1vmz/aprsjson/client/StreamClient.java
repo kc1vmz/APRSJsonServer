@@ -21,6 +21,8 @@ package com.kc1vmz.aprsjson.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
+import java.io.EOFException;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -29,13 +31,19 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 @Component
 final class StreamClient {
@@ -43,6 +51,7 @@ final class StreamClient {
     private final WebClient web;
     private final ObjectMapper mapper;
     private final ArrayDeque<Observation> recent = new ArrayDeque<>();
+    private final LinkedHashMap<URI, ResumeCursor> cursors = new LinkedHashMap<>();
 
     private Disposable subscription;
     private long generation;
@@ -54,6 +63,9 @@ final class StreamClient {
     private long packets;
     private long sequenceGaps;
     private long gapEvents;
+    private ResumeCursor requestedCursor;
+    private boolean awaitingReplayStart;
+    private boolean resumeSupported;
 
     StreamClient(WebClient.Builder builder, ObjectMapper mapper) {
         this.web = builder.build();
@@ -81,7 +93,26 @@ final class StreamClient {
         lastHeartbeat = null;
         latestSequence = packets = sequenceGaps = gapEvents = 0;
         state = "Connecting";
-        subscription = web.get().uri(uri).accept(NDJSON)
+        subscription = Flux.defer(() -> open(current, uri))
+                .retryWhen(Retry.fixedDelay(5, Duration.ofSeconds(2))
+                        .filter(failure -> failure instanceof IOException || failure instanceof TimeoutException
+                                || failure instanceof WebClientRequestException || failure instanceof SequenceJump)
+                        .doBeforeRetry(signal -> finish(current, "Connecting"))
+                        .onRetryExhaustedThrow((spec, signal) -> signal.failure()))
+                .subscribe(line -> {}, failure -> finish(current, "Stream error: " + failure.getMessage()));
+    }
+
+    private synchronized Flux<String> open(long current, URI uri) {
+        if (current != generation) return Flux.empty();
+        hello = null;
+        lastHeartbeat = null;
+        requestedCursor = cursors.get(uri);
+        var target = UriComponentsBuilder.fromUri(uri);
+        if (requestedCursor != null) {
+            target.replaceQueryParam("after", UriUtils.encode(requestedCursor.id(), StandardCharsets.UTF_8));
+        }
+        awaitingReplayStart = target.build(true).getQueryParams().containsKey("after");
+        return web.get().uri(target.build(true).toUri()).accept(NDJSON)
                 .exchangeToFlux(response -> {
                     if (!response.statusCode().is2xxSuccessful())
                         return response.createException().flatMapMany(Flux::error);
@@ -90,12 +121,11 @@ final class StreamClient {
                     return response.bodyToFlux(String.class);
                 })
                 .timeout(Duration.ofSeconds(45))
-                .doOnNext(line -> accept(current, line))
-                .subscribe(line -> {}, failure -> finish(current, "Stream error: " + failure.getMessage()),
-                        () -> finish(current, "Stream ended"));
+                .doOnNext(line -> accept(current, uri, line))
+                .concatWith(Mono.error(new EOFException("Stream ended")));
     }
 
-    private synchronized void accept(long current, String line) {
+    private synchronized void accept(long current, URI uri, String line) {
         if (current != generation) return;
         JsonNode event;
         try {
@@ -114,6 +144,13 @@ final class StreamClient {
                 if (hello != null) throw new IllegalArgumentException("Unexpected second hello");
                 bootId = text(event, "boot_id");
                 latestSequence = cursor(event, "latest_sequence");
+                if (requestedCursor != null && bootId.equals(requestedCursor.bootId()))
+                    latestSequence = requestedCursor.sequence();
+                resumeSupported = false;
+                for (JsonNode feature : event.path("capabilities").path("features"))
+                    if ("history_resume".equals(feature.asText())) resumeSupported = true;
+                if (!resumeSupported || (requestedCursor != null && !bootId.equals(requestedCursor.bootId())))
+                    cursors.remove(uri);
                 hello = event;
                 state = "Connected";
             }
@@ -124,15 +161,26 @@ final class StreamClient {
             case "gap" -> {
                 checkBoot(event);
                 gapEvents++;
-                append(new Observation(type, "", "", event, null));
+                cursors.remove(uri);
+                requestedCursor = null;
+                awaitingReplayStart = false;
+                latestSequence = cursor(hello, "latest_sequence");
+                append(new Observation(type, "", text(event, "reason"), event, null));
             }
             case "rx" -> {
                 checkBoot(event);
                 long sequence = cursor(event, "sequence");
                 if (sequence < 1) throw new IllegalArgumentException("Invalid reception sequence");
                 String id = text(event, "event_id");
-                if (sequence != latestSequence + 1) sequenceGaps++;
-                latestSequence = sequence;
+                ResumeCursor last = cursors.get(uri);
+                if (last != null && bootId.equals(last.bootId()) && id.equals(last.id())) return;
+                if (awaitingReplayStart && requestedCursor == null && sequence <= latestSequence)
+                    latestSequence = sequence - 1;
+                awaitingReplayStart = false;
+                if (sequence != latestSequence + 1) {
+                    sequenceGaps++;
+                    if (resumeSupported && last != null) throw new SequenceJump();
+                }
                 var packet = event.path("packet");
                 String encoded = packet.path("raw_tnc2_base64").asText(null);
                 if (encoded == null) throw new IllegalArgumentException("Missing raw packet");
@@ -144,6 +192,12 @@ final class StreamClient {
                         || !Arrays.equals(raw, display.asText().getBytes(StandardCharsets.UTF_8))))
                     throw new IllegalArgumentException("TNC2 text does not match raw packet");
                 if (event.has("created_at")) Instant.parse(text(event, "created_at"));
+                latestSequence = sequence;
+                if (resumeSupported) {
+                    cursors.remove(uri);
+                    cursors.put(uri, new ResumeCursor(id, bootId, sequence));
+                    if (cursors.size() > 32) cursors.pollFirstEntry();
+                }
                 packets++;
                 append(new Observation(type, id, display.asText(new String(raw, StandardCharsets.ISO_8859_1)),
                         event, HexFormat.ofDelimiter(" ").formatHex(raw)));
@@ -202,6 +256,13 @@ final class StreamClient {
     }
 
     record Observation(String type, String id, String text, JsonNode json, String hex) {}
+    private record ResumeCursor(String id, String bootId, long sequence) {}
+
+    private static final class SequenceJump extends RuntimeException {
+        SequenceJump() {
+            super("Reception sequence jumped before recovery");
+        }
+    }
     record Status(String state, JsonNode hello, Instant lastHeartbeat, long packets, long sequenceGaps,
                   long gapEvents, List<Observation> recent) {}
 }

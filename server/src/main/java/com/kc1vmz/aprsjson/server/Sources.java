@@ -57,9 +57,12 @@ final class Sources {
         this.applicationVersion = versionAccessor.find().block();
         this.file = file.toAbsolutePath();
         producerFile = this.file.resolveSibling(this.file.getFileName() + ".producer.json");
-        this.station = validateStation(Files.exists(producerFile)
-                ? mapper.readValue(producerFile.toFile(), ProducerSettings.class).station() : station);
-        combined = new Feed(mapper, () -> this.station, bootTime);
+        ProducerSettings producer = Files.exists(producerFile)
+                ? mapper.readValue(producerFile.toFile(), ProducerSettings.class) : new ProducerSettings(station, null);
+        this.station = validateStation(producer.station());
+        int historyDepth = producer.historyEvents() == null
+                ? Feed.DEFAULT_HISTORY_EVENTS : Feed.validateHistoryDepth(producer.historyEvents());
+        combined = new Feed(mapper, () -> this.station, bootTime, "all", historyDepth);
         if (Files.exists(this.file)) {
             List<Connection> saved = mapper.readValue(this.file.toFile(), new TypeReference<>() {});
             boolean migrate = false;
@@ -95,6 +98,7 @@ final class Sources {
 
     synchronized Map<String, Object> dashboard() {
         return Map.of("producerStation", station,
+                "historyEvents", combined.historyDepth(),
                 "sources", sources.values().stream().map(Source::status).toList(),
                 "combinedSubscribers", combined.subscribers(),
                 "activeSubscribers", combined.subscribers() + sources.values().stream()
@@ -116,6 +120,11 @@ final class Sources {
         Connection config = proposed.validated(key, existing == null ? null : existing.config, null);
         checkSerial(config);
         persist(key, config);
+        if (existing != null && existing.config.withHistoryEvents(config.historyEvents()).equals(config)) {
+            existing.config = config;
+            existing.feed.resizeHistory(config.historyEvents());
+            return key;
+        }
         if (existing == null) {
             existing = new Source(config);
             sources.put(key, existing);
@@ -124,6 +133,8 @@ final class Sources {
             if (!existing.config.producerStation().equals(config.producerStation())) {
                 existing.feed.close();
                 existing.feed = sourceFeed(config);
+            } else {
+                existing.feed.resizeHistory(config.historyEvents());
             }
             existing.config = config;
         }
@@ -170,9 +181,12 @@ final class Sources {
     }
 
     synchronized ProducerSettings saveProducer(ProducerSettings settings) throws IOException {
-        var saved = new ProducerSettings(validateStation(settings.station()));
+        int depth = settings.historyEvents() == null ? combined.historyDepth()
+                : Feed.validateHistoryDepth(settings.historyEvents());
+        var saved = new ProducerSettings(validateStation(settings.station()), depth);
         writeSettings(producerFile, saved);
         station = saved.station();
+        combined.resizeHistory(depth);
         return saved;
     }
 
@@ -212,13 +226,13 @@ final class Sources {
         combined.close();
     }
 
-    record ProducerSettings(String station) {}
+    record ProducerSettings(String station, Integer historyEvents) {}
 
     record PublicFeed(String id, String label, String type, boolean active, String health, String streamUrl,
                       String producerStation) {}
 
     private Feed sourceFeed(Connection config) {
-        return new Feed(mapper, config::producerStation, bootTime);
+        return new Feed(mapper, config::producerStation, bootTime, config.id().toString(), config.historyEvents());
     }
 
     private final class Source {
