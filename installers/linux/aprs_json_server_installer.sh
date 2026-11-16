@@ -39,8 +39,8 @@ if [ "$HOST_OS" = "Linux" ]; then
   APP_INSTALL_DIR=~/aprsjsonserver
   APP_LOG_DIR=~/aprsjsonserver/logs
   APP_DATA_DIR=~/aprsjsonserver/data
-  APP_MGMT_PORT=8181
-  APP_API_PORT=8180
+  APP_MGMT_PORT=8180
+  APP_API_PORT=8181
   APP_INSTALL_SERVICES=Y
 
   if [[ "$APP_INSTALL_SERVICES" =~ ^[Yy]$ ]]; then
