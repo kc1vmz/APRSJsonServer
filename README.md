@@ -35,6 +35,12 @@ TM-D710G initialization sequence adapted for reception.
 
 ## Server settings
 
+The server logs to the console and to `aprsjs-server.log` in the directory
+specified by the `APRSJS_LOG_DIR` environment variable. The default is `logs`
+relative to the working directory. Log4j2 rolls a nonempty existing file on
+startup and rolls the active file at 10 MB, with gzip archives in the
+`archive` subdirectory.
+
 | Property | Default | Environment variable | Purpose |
 | --- | --- | --- |
 | `server.address` | `0.0.0.0` | APRSJS_BIND_ADDRESS | Management listener address |

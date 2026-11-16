@@ -97,10 +97,11 @@ echo pushd .>> aprsjsonserver_start.bat
 echo cd %APP_INSTALL_DIR%>> aprsjsonserver_start.bat
 echo REM Set Environment Variables>> aprsjsonserver_start.bat
 echo SET APRSJS_DATA_DIR=%APP_DATA_DIR%>> aprsjsonserver_start.bat
+echo SET APRSJS_CONFIG_FILE=%APP_DATA_DIR%\configuration.json>> aprsjsonserver_start.bat
 echo SET APRSJS_LOG_DIR=%APP_LOG_DIR%>> aprsjsonserver_start.bat
 echo SET SERVER_PORT=%APP_API_PORT%>> aprsjsonserver_start.bat
-echo SET APRSJS_API_PORT=%APP_API_PORT%>> aprsjsonserver_start.bat
-echo SET APRSJS_MGMT_PORT=%APP_MGMT_PORT%>> aprsjsonserver_start.bat
+echo SET APRSJS_HTTP_PORT=%APP_API_PORT%>> aprsjsonserver_start.bat
+echo SET APRSJS_MGMT_HTTP_PORT=%APP_MGMT_PORT%>> aprsjsonserver_start.bat
 echo SET APRSJS_INSTALL_DIR=%APP_INSTALL_DIR%>> aprsjsonserver_start.bat
 echo REM Start Processes>> aprsjsonserver_start.bat
 echo start java -jar aprs-json-server-%APP_VERSION%.jar>> aprsjsonserver_start.bat

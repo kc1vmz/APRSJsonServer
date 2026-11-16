@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Properties>
+        <Property name="LOG_DIRECTORY">${env:APRSJS_LOG_DIR:-logs}</Property>
+        <Property name="SERVER_LOG">${LOG_DIRECTORY}/aprsjs-server.log</Property>
+        <Property name="SERVER_ARCHIVE">${LOG_DIRECTORY}/archive/aprsjs-server-%d{yyyy-MM-dd}-%i.log.gz</Property>
+        <Property name="PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %msg%n</Property>
+    </Properties>
+
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${PATTERN}"/>
+        </Console>
+        <RollingFile name="ServerFile" fileName="${SERVER_LOG}" filePattern="${SERVER_ARCHIVE}">
+            <PatternLayout pattern="${PATTERN}"/>
+            <Policies>
+                <OnStartupTriggeringPolicy minSize="1"/>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10" fileIndex="min"/>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="ServerFile"/>
+        </Root>
+    </Loggers>
+</Configuration>
