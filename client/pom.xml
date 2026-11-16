@@ -3,10 +3,10 @@
   <parent>
     <groupId>com.kc1vmz</groupId>
     <artifactId>aprs-json</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
   </parent>
   <artifactId>aprs-json-client</artifactId>
-  <version>1.0.3</version>
+  <version>1.0.4</version>
   <dependencies>
     <dependency>
       <groupId>org.springframework.boot</groupId>
