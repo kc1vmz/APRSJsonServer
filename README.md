@@ -44,7 +44,7 @@ startup and rolls the active file at 10 MB, with gzip archives in the
 | Property | Default | Environment variable | Purpose |
 | --- | --- | --- |
 | `server.address` | `0.0.0.0` | APRSJS_BIND_ADDRESS | Management listener address |
-| `server.port` | `8180` | APRSJS_HTTP_PORT | Management listener port |
+| `server.port` | `8180` | SERVER_PORT | Management listener port |
 | `aprs.api.address` | `127.0.0.1` | APRSJS_API_BIND_ADDRESS | Packet API listener address |
 | `aprs.api.port` | `8181` | APRSJS_API_HTTP_PORT | Packet API listener port |
 | `aprs.station` | `NOCALL` | APRSJS_STATION | Initial combined-feed producer station |

@@ -39,8 +39,8 @@ if [ "$HOST_OS" = "Linux" ]; then
   APP_INSTALL_DIR=~/aprsjsonserver
   APP_LOG_DIR=~/aprsjsonserver/logs
   APP_DATA_DIR=~/aprsjsonserver/data
-  APP_MGMT_PORT=8180
-  APP_API_PORT=8181
+  APP_MGMT_PORT=8181
+  APP_API_PORT=8180
   APP_INSTALL_SERVICES=Y
 
   if [[ "$APP_INSTALL_SERVICES" =~ ^[Yy]$ ]]; then
@@ -118,9 +118,8 @@ if [ "$HOST_OS" = "Linux" ]; then
       echo 'Environment=APRSJS_LOG_DIR='$APRSJS_LOG_DIR | sudo tee -a /etc/systemd/system/aprs-json-server.service >  /dev/null
       echo 'Environment=APRSJS_DATA_DIR='$APRSJS_DATA_DIR | sudo tee -a /etc/systemd/system/aprs-json-server.service >  /dev/null
       echo 'Environment=APRSJS_CONFIG_FILE='$APRSJS_DATA_DIR/configuration.json | sudo tee -a /etc/systemd/system/aprs-json-server.service >  /dev/null
-      echo 'Environment=SERVER_PORT='$APP_API_PORT | sudo tee -a /etc/systemd/system/aprs-json-server.service >  /dev/null
-      echo 'Environment=APRSJS_HTTP_PORT='$APP_API_PORT | sudo tee -a /etc/systemd/system/aprs-json-server.service >  /dev/null
-      echo 'Environment=APRSJS_MGMT_HTTP_PORT='$APP_MGMT_PORT | sudo tee -a /etc/systemd/system/aprs-json-server.service >  /dev/null
+      echo 'Environment=SERVER_PORT='$APP_MGMT_PORT | sudo tee -a /etc/systemd/system/aprs-json-server.service >  /dev/null
+      echo 'Environment=APRSJS_API_HTTP_PORT='$APP_API_PORT | sudo tee -a /etc/systemd/system/aprs-json-server.service >  /dev/null
       echo 'Environment=APRSJS_INSTALL_DIR='$APRSJS_INSTALL_DIR | sudo tee -a /etc/systemd/system/aprs-json-server.service >  /dev/null
       echo '[Install]' | sudo tee -a /etc/systemd/system/aprs-json-server.service >  /dev/null
       echo 'WantedBy=multi-user.target' | sudo tee -a /etc/systemd/system/aprs-json-server.service >  /dev/null
