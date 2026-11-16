@@ -35,7 +35,7 @@ if [ "$HOST_OS" = "Linux" ]; then
   fi
 
   # default environment variables
-  APP_VERSION=1.0.2
+  APP_VERSION=1.0.3
   APP_INSTALL_DIR=~/aprsjsonserver
   APP_LOG_DIR=~/aprsjsonserver/logs
   APP_DATA_DIR=~/aprsjsonserver/data
